@@ -58,6 +58,29 @@ def _make_herbie(model, date=None, fxx=0, product=None, search=None, **kw):
         product = model_info.get(m, {}).get("product", "sfc")
 
     herbie_kw = dict(model=model, fxx=fxx, product=product, verbose=False)
+
+    # Canadian models need variable= and level= kwargs
+    m = model.lower()
+    from rustweather.models import models as model_info
+    minfo = model_info.get(m, {})
+    if minfo.get("needs_variable") and "variable" not in kw:
+        _ca_vars = {"temp": "TMP_TGL_2", "dewpoint": "DPT_TGL_2",
+                     "wind": "WIND_TGL_10", "pressure": "PRES_SFC_0"}
+        if search:
+            s = search.lower()
+            for alias, var in _ca_vars.items():
+                if alias in s:
+                    herbie_kw["variable"] = var
+                    break
+            if "variable" not in herbie_kw:
+                herbie_kw["variable"] = "TMP_TGL_2"
+    if minfo.get("needs_level") and "level" not in kw:
+        herbie_kw["level"] = "surface"
+
+    # GEFS needs member= kwarg
+    if m in ("gefs", "aigefs", "hgefs") and "member" not in kw:
+        herbie_kw["member"] = 1  # default to member 1
+
     herbie_kw.update(kw)
 
     if date is None:

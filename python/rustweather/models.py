@@ -19,49 +19,49 @@ models = {
     "gfs_wave": {"product": "global.0p16", "description": "GFS Wave Global 0.16deg"},
     "gdas": {"product": "pgrb2.0p25", "description": "GDAS 0.25deg"},
     "graphcast": {"product": "pgrb2.0p25", "description": "GraphCast ML Global"},
-    "aigfs": {"product": "pgrb2.0p25", "description": "AI-GFS Global"},
+    "aigfs": {"product": "sfc", "description": "AI-GFS Global"},
     # GEFS family
-    "gefs": {"product": "pgrb2ap5", "description": "GEFS Ensemble 0.5deg"},
-    "gefs_reforecast": {"product": "pgrb2ap5", "description": "GEFS Reforecast"},
-    "aigefs": {"product": "pgrb2ap5", "description": "AI-GEFS Ensemble"},
-    "hgefs": {"product": "pgrb2ap5", "description": "High-Res GEFS Ensemble"},
+    "gefs": {"product": "atmos.5", "description": "GEFS Ensemble 0.5deg"},
+    "gefs_reforecast": {"product": "Days:1-10", "description": "GEFS Reforecast"},
+    "aigefs": {"product": "pgrb2sp25", "description": "AI-GEFS Ensemble"},
+    "hgefs": {"product": "pgrb2sp25", "description": "High-Res GEFS Ensemble"},
     # ECMWF
     "ifs": {"product": "oper", "description": "ECMWF IFS Global"},
     "aifs": {"product": "oper", "description": "ECMWF AIFS ML Global"},
     # RAP
-    "rap": {"product": "awp130", "description": "RAP 13km CONUS"},
-    "rap_historical": {"product": "awp130", "description": "RAP Historical Archive"},
-    "rap_ncei": {"product": "awp130", "description": "RAP NCEI Archive"},
+    "rap": {"product": "wrfprs", "description": "RAP 13km CONUS"},
+    "rap_historical": {"product": "analysis", "description": "RAP Historical Archive"},
+    "rap_ncei": {"product": "rap-130-13km", "description": "RAP NCEI Archive"},
     # NAM
     "nam": {"product": "awphys", "description": "NAM 12km CONUS"},
     # NBM
     "nbm": {"product": "co", "description": "National Blend of Models CONUS"},
-    "nbmqmd": {"product": "qmd", "description": "NBM Quantile-Mapped"},
+    "nbmqmd": {"product": "co", "description": "NBM Quantile-Mapped"},
     # RRFS
-    "rrfs": {"product": "prslev", "description": "RRFS 3km CONUS"},
+    "rrfs": {"product": "natlev", "description": "RRFS 3km CONUS"},
     # RTMA / URMA
-    "rtma": {"product": "2dvaranl", "description": "RTMA CONUS Analysis"},
-    "rtma_ru": {"product": "2dvaranl", "description": "RTMA Rapid Update"},
-    "rtma_ak": {"product": "2dvaranl", "description": "RTMA Alaska"},
-    "urma": {"product": "2dvaranl", "description": "URMA CONUS Analysis"},
-    "urma_ak": {"product": "2dvaranl", "description": "URMA Alaska"},
+    "rtma": {"product": "anl", "description": "RTMA CONUS Analysis"},
+    "rtma_ru": {"product": "anl", "description": "RTMA Rapid Update"},
+    "rtma_ak": {"product": "anl", "description": "RTMA Alaska"},
+    "urma": {"product": "anl", "description": "URMA CONUS Analysis"},
+    "urma_ak": {"product": "anl", "description": "URMA Alaska"},
     # HiResW / HREF
-    "hiresw": {"product": "5km", "description": "HiResW 5km CONUS"},
+    "hiresw": {"product": "arw_5km", "description": "HiResW 5km CONUS"},
     "href": {"product": "mean", "description": "HREF Ensemble Mean"},
     # CFS
-    "cfs": {"product": "pgbf", "description": "CFS Seasonal Forecast"},
+    "cfs": {"product": "6_hourly", "description": "CFS Seasonal Forecast"},
     # HAFS
-    "hafsa": {"product": "parent", "description": "HAFS-A Hurricane"},
-    "hafsb": {"product": "parent", "description": "HAFS-B Hurricane"},
-    # NEXRAD
+    "hafsa": {"product": "hafsa", "description": "HAFS-A Hurricane"},
+    "hafsb": {"product": "hafsb", "description": "HAFS-B Hurricane"},
+    # NEXRAD (special — not a GRIB model)
     "nexrad": {"product": "Level2", "description": "NEXRAD Level-II Radar"},
-    # Canada
-    "gdps": {"product": "pres", "description": "Canadian GDPS Global"},
-    "hrdps": {"product": "sfc", "description": "Canadian HRDPS 2.5km"},
-    "rdps": {"product": "pres", "description": "Canadian RDPS 10km"},
+    # Canada (require variable= kwarg)
+    "gdps": {"product": "15km/grib2/lat_lon", "description": "Canadian GDPS Global", "needs_variable": True, "needs_level": True},
+    "hrdps": {"product": "continental", "description": "Canadian HRDPS 2.5km", "needs_variable": True, "needs_level": True},
+    "rdps": {"product": "15km/grib2/lat_lon", "description": "Canadian RDPS 10km", "needs_variable": True, "needs_level": True},
     # US Navy
     "navgem_godae": {"product": "global", "description": "NAVGEM via GODAE"},
-    "navgem_nomads": {"product": "global", "description": "NAVGEM via NOMADS"},
+    "navgem_nomads": {"product": "none", "description": "NAVGEM via NOMADS"},
 }
 
 # ---------------------------------------------------------------------------
@@ -357,10 +357,14 @@ def guess_product(search, model="hrrr"):
         return "pgrb2.0p25"
     if m == "nam":
         return "awphys"
-    if m in ("rap", "rap_historical", "rap_ncei"):
-        return "awp130"
+    if m == "rap":
+        return "wrfprs"
+    if m in ("rap_historical",):
+        return "analysis"
+    if m in ("rap_ncei",):
+        return "rap-130-13km"
     if m in ("gefs", "aigefs", "hgefs"):
-        return "pgrb2ap5"
+        return "atmos.5"
     if m in ("ifs", "aifs"):
         return "oper"
     if m in ("rrfs",):
