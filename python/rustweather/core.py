@@ -94,13 +94,13 @@ def _download_xarray(H, search):
     return result
 
 
-def _resolve_search(search):
+def _resolve_search(search, model=None):
     """Resolve a possibly-aliased search string, handling pipe-separated multi-fields."""
     from rustweather.models import resolve_alias
     if "|" in search:
-        parts = [resolve_alias(p.strip()) for p in search.split("|")]
+        parts = [resolve_alias(p.strip(), model=model) for p in search.split("|")]
         return "|".join(parts)
-    return resolve_alias(search)
+    return resolve_alias(search, model=model)
 
 
 # ---------------------------------------------------------------------------
@@ -164,7 +164,7 @@ def plot(model, search, **kwargs):
     barbs = kwargs.pop("barbs", False)
     figsize = kwargs.pop("figsize", (12, 8))
 
-    resolved = _resolve_search(search)
+    resolved = _resolve_search(search, model=model)
 
     # Handle pipe-separated multi-field searches
     if "|" in resolved:
@@ -278,22 +278,37 @@ def sounding(model, location, **kwargs):
     # Download temperature, dewpoint/RH, and wind at all pressure levels
     import xarray as xr
 
-    # Build search for pressure-level data
+    # Search for pressure-level fields individually, filter to isobaric only
     search_strings = [
-        ":TMP:",
-        ":DPT:|:RH:",
-        ":UGRD:",
-        ":VGRD:",
+        ("TMP", ":TMP:.*mb"),
+        ("DPT", ":DPT:.*mb"),
+        ("UGRD", ":UGRD:.*mb"),
+        ("VGRD", ":VGRD:.*mb"),
     ]
 
+    # If DPT not available (some models), try RH
     datasets = {}
-    for s in search_strings:
+    for label, s in search_strings:
         try:
-            ds = _download_xarray(H, s)
-            for vname in ds.data_vars:
-                datasets[vname] = ds[vname]
+            result = H.xarray(s, backend_kwargs={"filter_by_keys": {"typeOfLevel": "isobaricInhPa"}})
+            if isinstance(result, list):
+                result = result[0] if result else None
+            if result is not None:
+                for vname in result.data_vars:
+                    datasets[vname] = result[vname]
         except Exception as e:
-            log.warning("Could not download %r: %s", s, e)
+            log.debug("Could not download %r: %s", s, e)
+            # If DPT fails, try RH
+            if label == "DPT":
+                try:
+                    result = H.xarray(":RH:.*mb", backend_kwargs={"filter_by_keys": {"typeOfLevel": "isobaricInhPa"}})
+                    if isinstance(result, list):
+                        result = result[0]
+                    if result is not None:
+                        for vname in result.data_vars:
+                            datasets[vname] = result[vname]
+                except Exception:
+                    pass
 
     if not datasets:
         raise RuntimeError(
@@ -316,12 +331,25 @@ def sounding(model, location, **kwargs):
                 break
 
         if lat_coord and lon_coord:
+            lat_vals = ds[lat_coord].values
+            lon_vals = ds[lon_coord].values
             # Handle 360-degree longitude convention
-            target_lon = lon % 360 if ds[lon_coord].values.min() >= 0 else lon
-            ds_point = ds.sel(
-                **{lat_coord: lat, lon_coord: target_lon},
-                method="nearest",
-            )
+            target_lon = lon % 360 if np.nanmin(lon_vals) >= 0 else lon
+
+            if lat_vals.ndim == 1:
+                # Regular grid — use xarray .sel
+                ds_point = ds.sel(
+                    **{lat_coord: lat, lon_coord: target_lon},
+                    method="nearest",
+                )
+            else:
+                # 2D lat/lon (Lambert, etc.) — find nearest point manually
+                dist = (lat_vals - lat)**2 + (lon_vals - target_lon)**2
+                j, i = np.unravel_index(np.nanargmin(dist), dist.shape)
+                # Select using dimension indices
+                y_dim = [d for d in ds.dims if d in ('y', 'y0')][0] if 'y' in ds.dims else list(ds.dims)[-2]
+                x_dim = [d for d in ds.dims if d in ('x', 'x0')][0] if 'x' in ds.dims else list(ds.dims)[-1]
+                ds_point = ds.isel(**{y_dim: j, x_dim: i})
         else:
             log.warning("Could not find lat/lon coords; using centroid.")
             ds_point = ds
@@ -955,7 +983,7 @@ def forecast(model, search, hours=None, **kwargs):
     title = kwargs.pop("title", None)
     figsize = kwargs.pop("figsize", (18, 12))
 
-    resolved = _resolve_search(search)
+    resolved = _resolve_search(search, model=model)
 
     if hours is None:
         m = model.lower()
@@ -1122,7 +1150,7 @@ def cross_section(model, search, start, end, **kwargs):
     start_lat, start_lon = resolve_location(start)
     end_lat, end_lon = resolve_location(end)
 
-    resolved = _resolve_search(search)
+    resolved = _resolve_search(search, model=model)
 
     # Force pressure-level product
     m = model.lower()
@@ -1258,7 +1286,7 @@ def get(model, search, **kwargs):
     fxx = kwargs.pop("fxx", 0)
     product = kwargs.pop("product", None)
 
-    resolved = _resolve_search(search)
+    resolved = _resolve_search(search, model=model)
 
     if "|" in resolved:
         searches = [s.strip() for s in resolved.split("|")]

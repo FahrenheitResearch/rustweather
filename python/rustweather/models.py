@@ -103,20 +103,20 @@ FIELD_ALIASES = {
     "snow": "WEASD:surface",
     "frozen_precip": "CFRZR:surface",
     # Moisture
-    "pwat": "PWAT:entire atmosphere (considered as a single layer)",
-    "precipitable_water": "PWAT:entire atmosphere (considered as a single layer)",
+    "pwat": "PWAT:entire atmosphere",
+    "precipitable_water": "PWAT:entire atmosphere",
     "rh": "RH:2 m above ground",
     "relative_humidity": "RH:2 m above ground",
     # Visibility
     "visibility": "VIS:surface",
     "vis": "VIS:surface",
     # Helicity / shear
-    "srh": "HLCY:3000-0 m above ground level",
-    "srh03": "HLCY:3000-0 m above ground level",
-    "srh01": "HLCY:1000-0 m above ground level",
-    "helicity": "HLCY:3000-0 m above ground level",
-    "updraft_helicity": "MXUPHL:5000-2000 m above ground level",
-    "uh": "MXUPHL:5000-2000 m above ground level",
+    "srh": "HLCY:3000-0 m above ground",
+    "srh03": "HLCY:3000-0 m above ground",
+    "srh01": "HLCY:1000-0 m above ground",
+    "helicity": "HLCY:3000-0 m above ground",
+    "updraft_helicity": "MXUPHL:5000-2000 m above ground",
+    "uh": "MXUPHL:5000-2000 m above ground",
     # Upper air
     "heights_500": "HGT:500 mb",
     "heights_250": "HGT:250 mb",
@@ -134,6 +134,30 @@ FIELD_ALIASES = {
     "ceiling": "HGT:cloud ceiling",
     # Boundary layer
     "pbl_height": "HPBL:surface",
+}
+
+# IFS/ECMWF uses eccodes-style parameter names in their index
+IFS_FIELD_ALIASES = {
+    "temp": ":2t:sfc:",
+    "temperature": ":2t:sfc:",
+    "t2m": ":2t:sfc:",
+    "dewpoint": ":2d:sfc:",
+    "td": ":2d:sfc:",
+    "wind": ":10u:sfc:|:10v:sfc:",
+    "u10": ":10u:sfc:",
+    "v10": ":10v:sfc:",
+    "pressure": ":sp:sfc:",
+    "mslp": ":msl:sfc:",
+    "cape": ":cape:sfc:",
+    "precip": ":tp:sfc:",
+    "cloud_cover": ":tcc:sfc:",
+    "pwat": ":tcwv:sfc:",
+    "heights_500": ":z:500:pl:",
+    "temp_850": ":t:850:pl:",
+    "temp_500": ":t:500:pl:",
+    "wind_850": ":u:850:pl:|:v:850:pl:",
+    "jet": ":u:250:pl:|:v:250:pl:",
+    "vorticity_500": ":vo:500:pl:",
 }
 
 
@@ -241,7 +265,7 @@ def latest(model="hrrr"):
     return HerbieLatest(model=model)
 
 
-def resolve_alias(search):
+def resolve_alias(search, model=None):
     """Expand a field alias to a GRIB search string.
 
     If *search* is already a GRIB search string (contains ``:``) it is
@@ -265,6 +289,10 @@ def resolve_alias(search):
     if ":" in search:
         return search
     key = search.strip().lower().replace(" ", "_").replace("-", "_")
+    # Check model-specific aliases first
+    if model and model.lower() in ("ifs", "aifs", "ecmwf"):
+        if key in IFS_FIELD_ALIASES:
+            return IFS_FIELD_ALIASES[key]
     if key in FIELD_ALIASES:
         return FIELD_ALIASES[key]
     raise KeyError(
